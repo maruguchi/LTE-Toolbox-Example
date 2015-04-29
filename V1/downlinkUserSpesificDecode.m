@@ -67,7 +67,7 @@ for  i = 1:size(user,2)
         dciUE = dciUE{1};
     catch ME
         if (strcmp(ME.message,'Index exceeds matrix dimensions.'))
-            enb =[];
+            user(i).data =[];
         end
         return
     end
@@ -84,6 +84,7 @@ for  i = 1:size(user,2)
     pdschUE.NLayers = enb.CellRefP; 
     pdschUE.RV = dciUE.RV;
     pdschUE.Modulation = {modulation}; 
+    pdschUE.NTurboDecIts = 5;
     if (enb.CellRefP==1)
         pdschUE.TxScheme = 'Port0';
     else
@@ -104,7 +105,7 @@ for  i = 1:size(user,2)
     
     % Decode DLSCH
     
-    [dlschBitUE, crc] = lteDLSCHDecode(enb, pdschUE, tbs, dlschUE);
+    [dlschBitUE, crcDLSCH] = lteDLSCHDecode(enb, pdschUE, tbs, dlschUE);
     
     % Recover user data
     
