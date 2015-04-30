@@ -1,4 +1,4 @@
-%% Parameterization
+%% Parameterization this is a test
 clear
 
 downlinkParameterization;
