@@ -1,13 +1,10 @@
-%% Parameterization
-clear
-
 % Cell-wide Settings
 % eNodeB settings are configured with a structure.
 % Transmission correspond to non-MBSFN (Multicast-broadcast single-frequency network) mode 
 % This is Matlab LTE parameter for cell wide channels that affect all user
 % Comment 1.A.i
 
-enb.NDLRB = 6;                 % No of Downlink Resource Blocks(DL-RB): 
+enb.NDLRB = 6;                  % No of Downlink Resource Blocks(DL-RB): 
                                 % Allowed configuration TS 36.106 Table 5.6-1
                                 %       channel bandwidth (Mhz)      | 1.4 | 3  | 5  | 10 | 15 | 20
                                 %       transmission bandwidth (NRB) | 6   | 15 | 25 | 50 | 75 | 100
@@ -40,19 +37,21 @@ enb.NFrame = 0;                 % Frame number (System Frame Number: 0 - 1023
 % User Spesific settings are configured with a structure.
 % This is custom structure to simulate user allocation of reource from upper layer (MAC)
 % for additional user use similar structure with prefix user(i) with i = user id.
-user(1).RNTI = 1;               % Radio Network Temporary Identifier for spesific user
+user(1).RNTI = 1000;               % Radio Network Temporary Identifier for spesific user
                                 % C-RNTI type (user spesific after RACH), value: 1 - 65523
                                 % http://www.sharetechnote.com/html/Handbook_LTE_RNTI.html  
-user(1).RBstart = 0;            % User resource block allocation start
-user(1).RBlength = 3;           % User resource block allocation length
+user(1).RBstart = 4;            % User resource block allocation start
+user(1).RBlength = 1;           % User resource block allocation length
                                 % these parameter refer to Downlink Resourcce Allocation Type 2 36.213 7.1.6.3
                                 % RB in step 2 for NDLRB < 50 and step 4 for NDLRB > 50
-user(1).MCS = 5;                % User spesific PDSCH modulation and coding scheme (MCS)  36.213 7.1.7
+user(1).MCS = 9;                % User spesific PDSCH modulation and coding scheme (MCS)  36.213 7.1.7
                                 % define modulation order and transport block size
                                 % value; 0 - 28 (defined) 
 user(1).data = [];              % user spesific data place holder (1 x transport block size) 
                                 % that can be used by upper layer
                                 % if empty downlinkUserSpesific function will generate random bits.
+user(1).dataRV = 0;             % data version
+                            
                                 
 
 % Cell-wide Settings at UE
@@ -65,22 +64,41 @@ userUE(1).enb = [];             % Place holder for enb configuration that will b
 % User Spesific settings are configured with a structure.
 % for additional user use similar structure with prefix userUE(i) with i = user id.
 
-userUE(1).RNTI = 1;             % C-RNTI for spesific user that UE already known after connection establishment
-userUE(1).data = [];            % Decoded user data place holder.           
+userUE(1).RNTI = 1000;          % C-RNTI for spesific user that UE already known after connection establishment
+userUE(1).data = [];            % Decoded user data place holder.   
+userUE(1).dataCRC = [];         % Decoded user data CRC place holder.
+userUE(1).dataBuffer = [];      % HARQ Soft combining buffer;
+userUE(1).CQI = [];             % PDSCH CQI value
 userUE(1).timeDomainOffset = 0; % UE time domain delay offset for fading channel
 
 % Second user
-user(2).RNTI = 2;                
-user(2).RBstart = 4;            
-user(2).RBlength = 6;           
-user(2).MCS = 12;                
-user(2).data = [];                                            
+user(2).RNTI = 20000;           % RNTI need to be kept separated in order PDCCH candidate not over lapped   
+user(2).RBstart = 5;            
+user(2).RBlength = 1;           
+user(2).MCS = 24;                
+user(2).data = []; 
+user(2).dataRV = 0;
 
 userUE(2).enb = [];             
-userUE(2).RNTI = 2;             
-userUE(2).data = [];            
+userUE(2).RNTI = 20000;             
+userUE(2).data = []; 
+userUE(2).dataCRC = [];
+userUE(2).CQI = []; 
 userUE(2).timeDomainOffset = 0; 
-
+userUE(2).dataBuffer = []; 
+% 
+% user(3).RNTI = 10000;           % RNTI need to be kept separated in order PDCCH candidate not over lapped   
+% user(3).RBstart = 0;            
+% user(3).RBlength = 1;           
+% user(3).MCS = 9;                
+% user(3).data = [];                                            
+% 
+% userUE(3).enb = [];             
+% userUE(3).RNTI = 10000;             
+% userUE(3).data = [];  
+% userUE(3).dataCRC = [];
+% userUE(3).CQI = []; 
+% userUE(3).timeDomainOffset = 0; 
 
 
 % Channel estimator configuration at UE
@@ -91,61 +109,3 @@ cec.TimeWindow = 9;                   % Time window size
 cec.InterpType = 'cubic';             % 2D interpolation type
 cec.InterpWindow = 'Centered';        % Interpolation window type
 cec.InterpWinSize = 1;                % Interpolation window size
-
-for i = 1:10                          % send 1 frame / 10 subframes
-    %% Downlink transmit for each TTI subframe (0.1 ms)
-    % eNodeB subframe number and SFN
-    disp(['=========================================================='])
-    enb.NSubframe = mod(i-1,10);
-    enb.NFrame = floor((i-1)/10);
-    disp(['Time stamp ',num2str((enb.NFrame*4+enb.NSubframe)*0.001),'s'])
-    disp(['eNodeB Downlink transmission SFN ',num2str(enb.NFrame),' Subframe ',num2str(enb.NSubframe)])
-    % Generate subframe transmit grid given enb and user parameters
-    
-    txGrid = downlinkCellWide(enb,lteDLResourceGrid(enb));
-    for u=1:size(user,2)
-        [txGrid, user(u)] = downlinkUserSpesific(enb, user(u), txGrid);
-    end
-    % Modulate transmit grid into signals
-    [txDLWaveform, txDLWaveformInfo] = lteOFDMModulate(enb, txGrid);
-    
-    % Zero padded for delay channel time domain shift
-    txDLWaveform((size(txDLWaveform,1)+1):(size(txDLWaveform,1)+20)) = zeros();
-    
-    
-    %% Channel in SISO mode
-    
-    % AWGN channel
-    rxDLWaveform = awgn(txDLWaveform,3,'measured');
-    disp([' '])
-    disp([' '])
-    %% Downlink receiver for each TTI subframe (0.1 ms)
-    
-    for u=1:size(userUE,2)
-        % Decode cell wide configuration enbUE for each start of the frames
-        if isempty(userUE(u).enb) ||  mod(userUE(u).enb.NSubframe,10) == 0
-            userUE(u).enb = downlinkCellWideDecode(userUE(u).enb, rxDLWaveform, txDLWaveformInfo, cec);
-        end
-        % Decode user spesific data
-        userUE(u) = downlinkUserSpesificDecode(userUE(u), rxDLWaveform, txDLWaveformInfo, cec);
-        
-        
-        %% Check recovery
-        
-        % compare user data transmit and received
-        recovered = isequal(user(u).data,userUE(u).data);
-        
-        % bit error rate for single subframe
-        ber = 1 - sum((user(u).data == userUE(u).data))/ size(user(u).data,1);
-        
-        disp(['Received by user number ',num2str(u),' RNTI ',num2str(userUE(u).RNTI),' : BER ',num2str(ber)])
-        
-        
-        
-        % UE next received Subframe
-        userUE(u).enb.NSubframe = userUE(u).enb.NSubframe + 1;
-    end
-end
-
-
-

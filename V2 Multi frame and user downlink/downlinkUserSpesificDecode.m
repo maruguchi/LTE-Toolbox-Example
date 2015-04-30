@@ -101,8 +101,12 @@ dlschUE = ltePDSCHDecode(user.enb, pdschUE,  rxgrid(rxInd), hest(chInd), nest);
 tbs = lteTBS(size(pdschUE.PRBSet,1),itbs);
 
 % Decode DLSCH
+if dciUE.RV == 0;
+    [dlschBitUE, crcDLSCH, user.dataBuffer] = lteDLSCHDecode(user.enb, pdschUE, tbs, dlschUE);
+else
+    [dlschBitUE, crcDLSCH, user.dataBuffer] = lteDLSCHDecode(user.enb, pdschUE, tbs, dlschUE,user.dataBuffer);
+end
 
-[dlschBitUE, crcDLSCH] = lteDLSCHDecode(user.enb, pdschUE, tbs, dlschUE);
 
 % Recover user data, add CRC and CQI info
 

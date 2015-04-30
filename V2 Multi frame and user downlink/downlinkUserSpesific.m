@@ -19,18 +19,33 @@ for  i = 1:size(user,2)
     pdschConfig.TxScheme = 'Port0';                                     % Transmission scheme SISO
     pdschConfig.Modulation = modulation;                                % Modulation scheme
     pdschConfig.RNTI = user(i).RNTI;                                    % 16-bit UE-specific mask
-    pdschConfig.RV = 0;                                                 % Redundancy Version
+    pdschConfig.RV = user(i).dataRV;                                    % Redundancy Version
     pdschConfig.PRBSet = (user(i).RBstart : user(i).RBstart+user(i).RBlength - 1).';    % Subframe resource allocation
     
     [pdschIndices, pdschInfo] = ltePDSCHIndices(enb, pdschConfig, pdschConfig.PRBSet, {'1based'});
     
     
-    % Generate data if not supplied
-    if isempty(user(i).data)
+    % Generate data if not supplied or data received successfully
+    % HARQ loop here
+    
+    if isempty(user(i).data) || user(i).dataACK == 0
         user(i).data = randi([0 1], tbs, 1);
+        pdschConfig.RV = 0;
+        disp(['Inserting new data for user ',num2str(i)])
+    % for time retransmit before transmission failed
     else
-        user(i).data = user(i).data(1:tbs);
+        pdschConfig.RV = pdschConfig.RV + 1;
+        if pdschConfig.RV < 4
+            user(i).data = user(i).data(1:tbs);
+            disp(['Inserting retransmission number ',num2str(pdschConfig.RV),' data for user ',num2str(i)])
+        else
+            pdschConfig.RV = 0;
+            user(i).data = randi([0 1], tbs, 1);
+            disp('Maximum retransmission achieved (4) data transmission aborted')
+            disp(['Inserting new data for user ',num2str(i)])
+        end
     end
+    user(i).dataRV = pdschConfig.RV;
         
     
     % Perform Channel Coding and rate matching
@@ -45,6 +60,7 @@ for  i = 1:size(user,2)
     dciConfig.DCIFormat = 'Format1A';                               % DCI message format
     dciConfig.Allocation.RIV = allocation2RIV(enb,user(i));         % Resource indication value
     dciConfig.ModCoding = user(i).MCS;                              % MCS data
+    dciConfig.RV = user(i).dataRV;                                  % Redudancy version
     [dciMessage, dciMessageBits] = lteDCI(enb, dciConfig);          % DCI message
     
     %% DCI Channel Coding
