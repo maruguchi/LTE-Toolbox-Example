@@ -40,14 +40,14 @@ enb.NFrame = 0;                 % Frame number (System Frame Number: 0 - 1023
 % User Spesific settings are configured with a structure.
 % This is custom structure to simulate user allocation of reource from upper layer (MAC)
 % for additional user use similar structure with prefix user(i) with i = user id.
-user(1).RNTI = 1;               % Radio Network Temporary Identifier for spesific user
+user(1).RNTI = 1000;               % Radio Network Temporary Identifier for spesific user
                                 % C-RNTI type (user spesific after RACH), value: 1 - 65523
                                 % http://www.sharetechnote.com/html/Handbook_LTE_RNTI.html  
-user(1).RBstart = 0;            % User resource block allocation start
+user(1).RBstart = 4;            % User resource block allocation start
 user(1).RBlength = 1;           % User resource block allocation length
                                 % these parameter refer to Downlink Resourcce Allocation Type 2 36.213 7.1.6.3
                                 % RB in step 2 for NDLRB < 50 and step 4 for NDLRB > 50
-user(1).MCS = 5;                % User spesific PDSCH modulation and coding scheme (MCS)  36.213 7.1.7
+user(1).MCS = 9;                % User spesific PDSCH modulation and coding scheme (MCS)  36.213 7.1.7
                                 % define modulation order and transport block size
                                 % value; 0 - 28 (defined) 
 user(1).data = [];              % user spesific data place holder (1 x transport block size) 
@@ -65,7 +65,7 @@ userUE(1).enb = [];             % Place holder for enb configuration that will b
 % User Spesific settings are configured with a structure.
 % for additional user use similar structure with prefix userUE(i) with i = user id.
 
-userUE(1).RNTI = 1;             % C-RNTI for spesific user that UE already known after connection establishment
+userUE(1).RNTI = 1000;             % C-RNTI for spesific user that UE already known after connection establishment
 userUE(1).data = [];            % Decoded user data place holder.   
 userUE(1).dataCRC = [];         % Decoded user data CRC place holder.
 userUE(1).CQI = [];             % PDSCH CQI value
@@ -86,7 +86,7 @@ userUE(2).CQI = [];
 userUE(2).timeDomainOffset = 0; 
 
 user(3).RNTI = 10000;           % RNTI need to be kept separated in order PDCCH candidate not over lapped   
-user(3).RBstart = 3;            
+user(3).RBstart = 0;            
 user(3).RBlength = 1;           
 user(3).MCS = 9;                
 user(3).data = [];                                            
