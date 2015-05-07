@@ -6,7 +6,7 @@ uplinkParameterization;
 
 
 disp(['=========================================================='])
-for i = 1:4                          % send 1 frame / 10 subframes
+for i = 1:10                          % send 1 frame / 10 subframes
     %% Downlink transmit for each TTI subframe (0.1 ms)
     % eNodeB subframe number and SFN
     
