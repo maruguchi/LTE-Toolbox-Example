@@ -9,12 +9,11 @@ clear
 % Date 06-May-2015
 waitBar = waitbar(0,'Start Calculating ....');
 snrMin = 1;
-snrMax = 10;
-totalSubframe = 100;
-mcsTest = [5,15,25];
+snrMax = 30;
+totalSubframe = 10;
+mcsTest = [5,10,15, 20,25];
 progress = 0;
 done = size(mcsTest,2)*(snrMax-snrMin+1)*(totalSubframe+1);
-
 
 for mcsIdx = 1:size(mcsTest,2)
     for SNR = snrMin:snrMax
@@ -48,8 +47,12 @@ for mcsIdx = 1:size(mcsTest,2)
             fullData = [fullData ; info.dataBits];
             
             % AWGN channel
-            rxWaveform = awgn(waveform,SNR,'measured');
+            %rxWaveform = awgn(waveform,SNR,'measured');
             
+
+            [ rxWaveform ] = channel( waveform,'AWGN', SNR, waveformInfo, enb.CellRefP );
+           
+            %rxWaveform = waveform;
             
             % Demodulate and decode receive signal
             [ userChannel(1).enb, infoUE ] = lteDLPHYRX( rxWaveform, waveformInfo , userChannel(1).enb, userChannel(1));
@@ -75,10 +78,12 @@ for mcsIdx = 1:size(mcsTest,2)
         %  calculating BER for each data
         % written by Andi Soekartono, MSC Telecommunication
         % Date 06-May-2015
-        mibBER(SNR) = 1 - sum((fullMIB == fullRxMIB))/ size(fullMIB,1);
-        cfiBER(SNR) = 1 - sum((fullCFI == fullRxCFI))/ size(fullCFI,1);
-        dciBER(SNR) = 1 - sum((fullDCI == fullRxDCI))/ size(fullDCI,1);
+        mibBER(mcsIdx,SNR) = 1 - sum((fullMIB == fullRxMIB))/ size(fullMIB,1);
+        cfiBER(mcsIdx,SNR) = 1 - sum((fullCFI == fullRxCFI))/ size(fullCFI,1);
+        dciBER(mcsIdx,SNR) = 1 - sum((fullDCI == fullRxDCI))/ size(fullDCI,1);
         dataBER(mcsIdx,SNR) = 1 - sum((fullData == fullRxData))/ size(fullData,1);
+        codeRate(mcsIdx) = sharedChannel(1).pdsch.codeRate;
+        modulation{mcsIdx} = sharedChannel(1).pdsch.Modulation;
     end
 end
 delete(waitBar);

@@ -185,3 +185,8 @@ else
     info.dataBits = [];
 end
 
+if exist('dciMessage','var')
+    info.dciMessage = dciMessage;
+end
+
+

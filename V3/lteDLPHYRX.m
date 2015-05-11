@@ -37,6 +37,10 @@ if isempty(enb)
     % Matlab LTE Toolbox to peform OFDM demodulation to received signal into resource grid
     resourceGrid = lteOFDMDemodulate(enb, resampledWaveform);
     
+    % Peform channel estimation and equalization
+    %[hest,noisest] = lteDLChannelEstimate(enb,resourceGrid);
+    %resourceGrid = lteEqualizeMMSE(resourceGrid, hest, noisest);
+    
     % Matlab LTE Toolbox to generate PBCH spesific index in resource grid
     pbchIndices = ltePBCHIndices(enb);
     % Matlab LTE Toolbox to decode Physical BCH symbols into MIB bits
@@ -72,6 +76,10 @@ waveform((size(waveform,1)+1):(size(waveform,1) + enb.offset)) = zeros();
 % Matlab LTE Toolbox to peform OFDM demodulation to received signal into resource grid
 resourceGrid = lteOFDMDemodulate(enb, waveform);
 
+% Peform channel estimation and equalization
+%[hest,noisest] = lteDLChannelEstimate(enb,resourceGrid);
+% resourceGrid = lteEqualizeMMSE(resourceGrid, hest, noisest);
+
 
 %% Decode BCH MIB in every subframe 0
 % Skip if MIB already decode in initial cell wide setting procedure above
@@ -103,24 +111,43 @@ enb.CFI = lteCFIDecode(cfiBits);
 % Matlab LTE Toolbox to generate PDCCH spesific index in resource grid
 pdcchIndices = ltePDCCHIndices(enb);
 % Matlab LTE Toolbox to decode PCFICH symbols into CFI bits
-[dciBits, pdcchSymbols] = ltePDCCHDecode(enb, resourceGrid(pdcchIndices));
+[dciBitsOri, pdcchSymbols] = ltePDCCHDecode(enb, resourceGrid(pdcchIndices));
 
 %% Decode DCI to get PPDSCH mapping in resource grid
 
 % PDCCH blind search for System Information (SI) and DCI decoding. The
 % LTE System Toolbox provides full blind search of the PDCCH to find
 % any DCI messages with a specified RNTI
-[dci,dciBits] = ltePDCCHSearch(enb, userChannel.pdcch, dciBits);
-if ~isempty(dciBits)
-    dciBits = dciBits{1};
+
+% input = inBits(pdcchCandidates(candidate,1):pdcchCandidates(candidate,2));
+% [dciMessageBits,decRnti] = lteDCIDecode(dciConfig,input);
+
+[dciFull,dciBitsFull] = ltePDCCHSearch(enb, userChannel.pdcch, dciBitsOri);
+
+if ~isempty(dciFull)
+    for i = 1:size(dciFull,2)
+        if strcmp(dciFull{i}.DCIFormat,'Format1A')
+            dci = dciFull{i};
+            [~, dciBits] = lteDCI(enb, dci);
+            % dciBits = dciBitsFull{1};
+            break
+        end
+        dciBits = [];
+    end
+    
 else
     dciBits = [];
 end
 
+
+
+
+
+
 %% Decode PDSCH and DSCH data
-if ~isempty(dci)
+if exist('dci','var');
+    
     try
-        dci = dci{1};
         
         % convert MCS to modulation scheme
         [modulation, itbs] = hMCSConfiguration(dci.ModCoding);
@@ -154,8 +181,10 @@ if ~isempty(dci)
         userChannel.data = dlschBit{1};
         userChannel.dataCRC = crcDLSCH;
     catch ME
+        error =1;
     end
 end
+
 %% Return info about internal physical layer process
 
 info = struct;
@@ -172,4 +201,8 @@ if exist('dlschBit','var')
 else
     info.dataBits = [];
 end
+if exist('dci','var');
+    info.dci = dci;
+end
+
 

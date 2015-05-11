@@ -32,6 +32,11 @@ switch channelType
                 pdsch.RV = rv;                                                % Redundancy Version
                 pdsch.PRBSet = (vrbStart : vrbStart+vrbLength - 1).';         % Subframe resource allocation
                 
+                [~, pdschInfo] = ltePDSCHIndices(enb, pdsch, pdsch.PRBSet, {'1based'});
+                
+                pdsch.codeRate = double(tbs)/double(pdschInfo.G);
+                
+                
                 % DCI Parameterization
                 dci.DCIFormat = 'Format1A';                                   % DCI message format
                 dci.Allocation.RIV = allocation2RIV(enb,vrbStart,vrbLength);  % Resource indication value
@@ -41,7 +46,7 @@ switch channelType
                 % PDCCH Parameterization
                 pdcch.NDLRB = enb.NDLRB;                                      % Number of DL-RB in total BW
                 pdcch.RNTI = rnti;                                            % 16-bit value number
-                pdcch.PDCCHFormat = 0;                                        % 1-CCE of aggregation level 1
+                pdcch.PDCCHFormat = 2;                                        % 2-CCE of aggregation level 2
                 
                 % Data Generation
                 data = randi([0 1], tbs, 1);                                  % random bit generation
