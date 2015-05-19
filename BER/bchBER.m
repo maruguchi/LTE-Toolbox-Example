@@ -19,7 +19,7 @@ enb.NFrame = 0;                 % System Frame number
 enb.PHICHDuration = 'Normal';   % PHICH duration (accord to CP): 'Normal' | 'Extended'
 enb.CFI = 3;                    % Control format indicator (CFI) value: 1,2 or 3
 
-TotFrame = 1000;
+TotFrame = 100;
 
 SNRmin = -10;
 SNRmax = 5;
@@ -143,6 +143,7 @@ delete(waitBar);
 BER(1,:) = modulationBER;
 BER(2,:) = convoBER;
 BER(3,:) = crcBER;
+
 % add smallest finite number so BER = 0 can be plot
 BER = BER + eps;
 color = ['r','g','b','c','m','y','k'];                              % line color

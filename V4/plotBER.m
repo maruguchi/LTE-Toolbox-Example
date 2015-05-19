@@ -6,13 +6,13 @@ BER(4:3+size(dataBER,1),:) = dataBER;
 BER = BER + eps;
 color = ['r','g','b','m','y','k'];                              % line color
 marker = ['+','o','*','.','x','s','d','^','v','>','<','p','h'];     % line marker
-figure('Name','BER vs Eb/No','NumberTitle','off','Position',...
+figure('Name','BER vs SNR','NumberTitle','off','Position',...
         [(screen(3)-plotSize(1))/2,60,plotSize(1),plotSize(2)-80]);
 for iPlot = 1:size(BER,1)                                           % plot all MCS
     colorIdx = mod(iPlot-1,7)+1;
     markerIdx =  mod(iPlot-1,13)+1;
     lineProp =['-',color(colorIdx),marker(markerIdx)];
-    semilogy(snrMin-3:snrMax-3,BER(iPlot,snrMin:snrMax),lineProp)
+    semilogy(snrMin:snrMax,BER(iPlot,snrMin:snrMax),lineProp)
     hold on;
     switch iPlot
         case 1
@@ -26,7 +26,7 @@ for iPlot = 1:size(BER,1)                                           % plot all M
     end
 end
 %set(gca,'Color',[0.8 0.8 0.8]);
-xlabel('Eb/No (dB)') % x-axis label
+xlabel('SNR (dB)') % x-axis label
 ylabel('BER') % y-axis label
 grid on;
 axis([-inf,inf,10^-6,1])

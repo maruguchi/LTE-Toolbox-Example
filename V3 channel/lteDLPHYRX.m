@@ -26,10 +26,10 @@ if isempty(enb)
     % determine  Physical Cell ID and time domain signal offset
     [enb.NCellID, offset] = lteCellSearch(enb, resampledWaveform);
     
-%     % Apply offset to align waveform to beginning of the LTE Frame
-%     resampledWaveform = resampledWaveform(1 + offset:end);
-%     % Pad end of signal with zeros after offset alignment
-%     resampledWaveform((size(resampledWaveform,1)+1):(size(resampledWaveform,1) + offset)) = zeros();
+    % Apply offset to align waveform to beginning of the LTE Frame
+    resampledWaveform = resampledWaveform(1 + offset:end);
+    % Pad end of signal with zeros after offset alignment
+    resampledWaveform((size(resampledWaveform,1)+1):(size(resampledWaveform,1) + offset)) = zeros();
     
     % Set subframe to 0 (begining of LTE Frame)
     enb.NSubframe = 0;
@@ -38,8 +38,8 @@ if isempty(enb)
     resourceGrid = lteOFDMDemodulate(enb, resampledWaveform);
     
     % Peform channel estimation and equalization
-    %[hest,noisest] = lteDLChannelEstimate(enb,resourceGrid);
-    %resourceGrid = lteEqualizeMMSE(resourceGrid, hest, noisest);
+    [hest,noisest] = lteDLChannelEstimate(enb,resourceGrid);
+    resourceGrid = lteEqualizeMMSE(resourceGrid, hest, noisest);
     
     % Matlab LTE Toolbox to generate PBCH spesific index in resource grid
     pbchIndices = ltePBCHIndices(enb);
@@ -67,18 +67,18 @@ if enb.NSubframe == 0
     enb.offset = lteDLFrameOffset(enb, waveform);
 end
 
-% % Apply offset to align waveform to beginning of the LTE Frame
-% waveform = waveform(1 + enb.offset:end);
-% % Pad end of signal with zeros after offset alignment
-% waveform((size(waveform,1)+1):(size(waveform,1) + enb.offset)) = zeros();
+% Apply offset to align waveform to beginning of the LTE Frame
+waveform = waveform(1 + enb.offset:end);
+% Pad end of signal with zeros after offset alignment
+waveform((size(waveform,1)+1):(size(waveform,1) + enb.offset)) = zeros();
 
 
 % Matlab LTE Toolbox to peform OFDM demodulation to received signal into resource grid
 resourceGrid = lteOFDMDemodulate(enb, waveform);
 
 % Peform channel estimation and equalization
-%[hest,noisest] = lteDLChannelEstimate(enb,resourceGrid);
-% resourceGrid = lteEqualizeMMSE(resourceGrid, hest, noisest);
+[hest,noisest] = lteDLChannelEstimate(enb,resourceGrid);
+resourceGrid = lteEqualizeMMSE(resourceGrid, hest, noisest);
 
 
 %% Decode BCH MIB in every subframe 0

@@ -6,7 +6,7 @@
 %% Cell parameterization
 
 % Resouce grid creation
-enb.NDLRB = 25;                 % Number of downlink physical resouce block in the cell
+enb.NDLRB = 100;                 % Number of downlink physical resouce block in the cell
 enb.CyclicPrefix = 'normal';    % Length of downlink CyclicPrefix: 'normal' or 'extended'
 enb.CellRefP = 1;               % Number of antenna port with CRS signal: 1,2 or 4
 
@@ -30,7 +30,7 @@ enb.CFI = 1;                    % Control format indicator (CFI) value: 1,2 or 3
 
 % sharedChannelBuilder(enb, type, allocationType, rnti, vrbStart, vrbLength, mcs, rv)
 
-[sharedChannel(1) userChannel(1)] = sharedChannelBuilder(enb,'Downlink-DTCH',2,100,0,25,mcs,0);
+[sharedChannel(1) userChannel(1)] = sharedChannelBuilder(enb,'Downlink-DTCH',2,100,0,100,mcs,0);
 
 
 

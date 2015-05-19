@@ -12,7 +12,7 @@ for iPlot = 1:size(BER,1)                                           % plot all M
     colorIdx = mod(iPlot-1,7)+1;
     markerIdx =  mod(iPlot-1,13)+1;
     lineProp =['-',color(colorIdx),marker(markerIdx)];
-    semilogy(snrMin-3:snrMax-3,BER(iPlot,snrMin:snrMax),lineProp)
+    semilogy(snrMin:snrMax,BER(iPlot,snrMin:snrMax),lineProp)
     hold on;
     switch iPlot
         case 1

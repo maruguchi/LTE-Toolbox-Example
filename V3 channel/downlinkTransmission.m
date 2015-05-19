@@ -15,6 +15,11 @@ mcsTest = [8];
 progress = 0;
 done = size(mcsTest,2)*(snrMax-snrMin+1)*(totalSubframe+1);
 
+chcfg = struct('Seed',1,'DelayProfile','EPA','NRxAnts',1);
+chcfg.DopplerFreq = 5.0;
+chcfg.MIMOCorrelation = 'Low';
+
+
 for mcsIdx = 1:size(mcsTest,2)
     for SNR = snrMin:snrMax
         % Setting parameter
@@ -51,9 +56,10 @@ for mcsIdx = 1:size(mcsTest,2)
             
             % AWGN channel
             %rxWaveform = awgn(waveform,SNR,'measured');
-            
-
-            [ rxWaveform ] = channel( waveform,'AWGN', SNR-3, waveformInfo, enb.CellRefP , mcs);
+            chcfg.SamplingRate = waveformInfo.SamplingRate;
+            chcfg.InitTime = enb.NSubframe*1e-3;
+            fdWaveform = lteFadingChannel(chcfg,waveform);
+            [ rxWaveform ] = channel( fdWaveform,'AWGN', SNR, waveformInfo, enb.CellRefP,mcs );
            
             %rxWaveform = waveform;
             
@@ -99,20 +105,20 @@ delete(waitBar);
 screen = get(0, 'MonitorPositions');
 plotSize = [(screen(3)/2)- 40,(screen(4)/2)- 120];
 
-% % spectrum analyzer
-% spectrumAnalyzer = dsp.SpectrumAnalyzer();
-% spectrumAnalyzer.Name = 'Transmitted signal spectrum';
-% spectrumAnalyzer.Position = [20,screen(4)-plotSize(2)-120,plotSize(1),plotSize(2)];
-% spectrumAnalyzer.SampleRate = waveformInfo.SamplingRate;
-% 
-% step(spectrumAnalyzer,fullWaveform);
-% 
-% spectrumAnalyzer2 = dsp.SpectrumAnalyzer();
-% spectrumAnalyzer2.Name = 'Received signal spectrum';
-% spectrumAnalyzer2.Position = [60+plotSize(1),screen(4)-plotSize(2)-120,plotSize(1),plotSize(2)];
-% spectrumAnalyzer2.SampleRate = waveformInfo.SamplingRate;
-% 
-% step(spectrumAnalyzer2,fullRxWaveform);
+% spectrum analyzer
+spectrumAnalyzer = dsp.SpectrumAnalyzer();
+spectrumAnalyzer.Name = 'Transmitted signal spectrum';
+spectrumAnalyzer.Position = [20,screen(4)-plotSize(2)-120,plotSize(1),plotSize(2)];
+spectrumAnalyzer.SampleRate = waveformInfo.SamplingRate;
+
+step(spectrumAnalyzer,fullWaveform);
+
+spectrumAnalyzer2 = dsp.SpectrumAnalyzer();
+spectrumAnalyzer2.Name = 'Received signal spectrum';
+spectrumAnalyzer2.Position = [60+plotSize(1),screen(4)-plotSize(2)-120,plotSize(1),plotSize(2)];
+spectrumAnalyzer2.SampleRate = waveformInfo.SamplingRate;
+
+step(spectrumAnalyzer2,fullRxWaveform);
 
 % plot BER
 plotBER

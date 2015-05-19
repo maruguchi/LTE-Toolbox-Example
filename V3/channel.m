@@ -7,8 +7,19 @@ switch varargin{1}
         SNR = varargin {2};
         timeDomainInfo = varargin{3};
         antennaPort = varargin{4};
+        mcs = varargin{5};
+        [modulation, ~] = hMCSConfiguration(mcs);
+        switch modulation
+            case 'QPSK'
+                modOrder = 2;
+            case '16QAM'
+                modOrder = 4;
+            case '64QAM' 
+                modOrder = 6;
+        end
+                
         
-        N0 = 1/(sqrt(2.0*antennaPort*double(timeDomainInfo.Nfft))*(10^(SNR/20)));
+        N0 = 1/(sqrt(modOrder*2.0*antennaPort*double(timeDomainInfo.Nfft))*(10^(SNR/20)));
         
         % Create additive white Gaussian noise
         noise = N0*complex(randn(size(waveform)),randn(size(waveform)));
@@ -16,6 +27,7 @@ switch varargin{1}
         % Add noise to the received time domain waveform
         waveform = waveform + noise;
     
+   
     otherwise
         
 end

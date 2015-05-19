@@ -1,4 +1,4 @@
-function [ enb, info ] = lteDLPHYRX( waveform, waveformInfo , enb, userChannel)
+function [ userChannel, info ] = lteDLPHYRX( waveform, waveformInfo , enb, userChannel)
 % lteDLPHYRX
 % Perform synchronization, demodulation and decoding of received LTE downlink transmission
 % signal into spesific information
@@ -176,16 +176,28 @@ if exist('dci','var');
         tbs = lteTBS(size(userChannel.pdsch.PRBSet,1),itbs);
         
         % Decode DLSCH
-        [dlschBit, crcDLSCH] = lteDLSCHDecode(enb, userChannel.pdsch, tbs, dlsch);
+        if userChannel.pdsch.RV == 0
+            [dlschBit, crcDLSCH, state] = lteDLSCHDecode(enb, userChannel.pdsch, tbs, dlsch);
+        else
+            [dlschBit, crcDLSCH, state] = lteDLSCHDecode(enb, userChannel.pdsch, tbs, dlsch, userChannel.state);
+        end
         
         userChannel.data = dlschBit{1};
         userChannel.dataCRC = crcDLSCH;
+        if crcDLSCH == 0
+            userChannel.state = [];
+        else
+            userChannel.state = state;
+        end
     catch ME
-        error =1;
+        userChannel.dataCRC = 1;
+        userChannel.state = [];
     end
 end
 
 %% Return info about internal physical layer process
+userChannel.enb = struct;
+userChannel.enb = enb;
 
 info = struct;
 if exist('mib','var')
@@ -204,5 +216,6 @@ end
 if exist('dci','var');
     info.dci = dci;
 end
+
 
 

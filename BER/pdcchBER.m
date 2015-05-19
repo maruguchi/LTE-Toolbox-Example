@@ -3,7 +3,7 @@ clear;
 %% Cell parameterization
 
 % Resouce grid creation
-enb.NDLRB = 15;                 % Number of downlink physical resouce block in the cell
+enb.NDLRB = 100;                 % Number of downlink physical resouce block in the cell
 enb.CyclicPrefix = 'normal';    % Length of downlink CyclicPrefix: 'normal' or 'extended'
 enb.CellRefP = 1;               % Number of antenna port with CRS signal: 1,2 or 4
 
@@ -23,7 +23,7 @@ enb.CFI = 3;                    % Control format indicator (CFI) value: 1,2 or 3
 % PDCCH format;
 cceBits = [1,2,4,8];
 
-TotFrame = 1000;
+TotFrame = 100;
 
 SNRmin = -10;
 SNRmax = 5;
@@ -69,7 +69,7 @@ for isnr = SNRmin:SNRmax
         
         % map PDCCH Bit to to PDCCH Space
         pdcchInfo = ltePDCCHInfo(enb);                                   % Get the total resources for PDCCH
-        pdcchSpace = -1*ones(pdcchInfo.MTot, 1);                         % Initialized with -1
+        pdcchSpace = ones(pdcchInfo.MTot, 1);                         % Initialized with -1
         pdcchSpace(1:cceBits(iformat)*72) = pdcchBits;
                 
         % modulate QPSK before adding to resource grid
@@ -157,6 +157,8 @@ delete(waitBar);
 BER(1,:) = modulationBER;
 BER(2,:) = convoBER;
 BER(3,:) = crcBER;
+BER(4,:) = 0.5*erfc(sqrt(10.^((SNRmin:SNRmax)/10)));
+
 % add smallest finite number so BER = 0 can be plot
 BER = BER + eps;
 color = ['r','g','b','c','m','y','k'];                              % line color
@@ -175,6 +177,8 @@ for iPlot = 1:size(BER,1)                                           % plot all M
             legendEntry{iPlot} = 'BER after convolutional coding';
         case 3
             legendEntry{iPlot} = 'BER after CRC';
+        case 4
+            legendEntry{iPlot} = 'QPSK Theorical';
     end
 end
 %set(gca,'Color',[0.8 0.8 0.8]);
