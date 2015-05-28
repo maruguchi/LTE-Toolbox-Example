@@ -106,19 +106,19 @@ screen = get(0, 'MonitorPositions');
 plotSize = [(screen(3)/2)- 40,(screen(4)/2)- 120];
 
 % spectrum analyzer
-spectrumAnalyzer = dsp.SpectrumAnalyzer();
-spectrumAnalyzer.Name = 'Transmitted signal spectrum';
-spectrumAnalyzer.Position = [20,screen(4)-plotSize(2)-120,plotSize(1),plotSize(2)];
-spectrumAnalyzer.SampleRate = waveformInfo.SamplingRate;
-
-step(spectrumAnalyzer,fullWaveform);
-
-spectrumAnalyzer2 = dsp.SpectrumAnalyzer();
-spectrumAnalyzer2.Name = 'Received signal spectrum';
-spectrumAnalyzer2.Position = [60+plotSize(1),screen(4)-plotSize(2)-120,plotSize(1),plotSize(2)];
-spectrumAnalyzer2.SampleRate = waveformInfo.SamplingRate;
-
-step(spectrumAnalyzer2,fullRxWaveform);
+% spectrumAnalyzer = dsp.SpectrumAnalyzer();
+% spectrumAnalyzer.Name = 'Transmitted signal spectrum';
+% spectrumAnalyzer.Position = [20,screen(4)-plotSize(2)-120,plotSize(1),plotSize(2)];
+% spectrumAnalyzer.SampleRate = waveformInfo.SamplingRate;
+% 
+% step(spectrumAnalyzer,fullWaveform);
+% 
+% spectrumAnalyzer2 = dsp.SpectrumAnalyzer();
+% spectrumAnalyzer2.Name = 'Received signal spectrum';
+% spectrumAnalyzer2.Position = [60+plotSize(1),screen(4)-plotSize(2)-120,plotSize(1),plotSize(2)];
+% spectrumAnalyzer2.SampleRate = waveformInfo.SamplingRate;
+% 
+% step(spectrumAnalyzer2,fullRxWaveform);
 
 % plot BER
 plotBER

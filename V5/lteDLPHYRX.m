@@ -1,0 +1,278 @@
+function [ userChannel, info ] = lteDLPHYRX( waveform, waveformInfo , enb, userChannel)
+% lteDLPHYRX
+% Perform synchronization, demodulation and decoding of received LTE downlink transmission
+% signal into spesific information
+
+% Matlab code for LTE downlink physical layer receiver
+% written by Andi Soekartono, MSC Telecommunication
+% Date 06-May-2015
+
+
+estimator.PilotAverage = 'UserDefined';
+estimator.FreqWindow = 1;
+estimator.TimeWindow = 31;
+estimator.InterpType = 'cubic';
+estimator.InterpWinSize = 1;
+estimator.InterpWindow = 'Centered';
+
+%% Initial cell wide setting
+% Checking cell wide setting at UE if empty use basic cell setting to decode center 72
+% sub carrier (6 RB) where PSS and SSS and PBCH lies.
+
+if isempty(enb)
+    enb.DuplexMode = 'FDD';         % Default duplex mode
+    enb.CyclicPrefix = 'Normal';    % Default cyclic prefix length
+    enb.NDLRB = 6;                  % Number minimium resource block to decode PSS and SSS
+    enb.CellRefP = 1;               % Assume Nodeb have 1 antenna port
+    
+    % Matlab resample function to match signal sampling rate with
+    % appropriate LTE defined sampling rate for 6 RB (1.92 MHz)
+    ofdmInfo = lteOFDMInfo(enb);
+    resampledWaveform = resample(waveform, 1, waveformInfo.SamplingRate/ofdmInfo.SamplingRate);
+    
+    % Matlab LTE Toolbox to peform cell search using PSS and SSS pattern to
+    % determine  Physical Cell ID and time domain signal offset
+    [enb.NCellID, offset] = lteCellSearch(enb, resampledWaveform);
+    
+    % Apply offset to align waveform to beginning of the LTE Frame
+    resampledWaveform = resampledWaveform(1 + offset:end);
+    % Pad end of signal with zeros after offset alignment
+    resampledWaveform((size(resampledWaveform, 1)+1):(size(resampledWaveform, 1) + offset)) = zeros();
+    
+    % Set subframe to 0 (begining of LTE Frame)
+    enb.NSubframe = 0;
+    
+    % Matlab LTE Toolbox to peform OFDM demodulation to received signal into resource grid
+    resourceGrid = lteOFDMDemodulate(enb, resampledWaveform);
+    
+    % Peform channel estimation and equalization
+    [hest, noisest] = lteDLChannelEstimate(enb, estimator, resourceGrid);
+    resourceGrid = lteEqualizeMMSE(resourceGrid, hest, noisest);
+    
+    % Matlab LTE Toolbox to generate PBCH spesific index in resource grid
+    pbchIndices = ltePBCHIndices(enb);
+    % Matlab LTE Toolbox to decode Physical BCH symbols into MIB bits
+    [bchBits, pbchSymbols, nfmod4, mib, enb.CellRefP] = ltePBCHDecode(enb, resourceGrid(pbchIndices)); %#ok<ASGLU>
+    
+    % Matlab LTE Toolbox to decode MIB bits into cell wide settings
+    enb = lteMIB(mib, enb);
+    % Calculating exact SFN
+    enb.NFrame = enb.NFrame + nfmod4;
+    
+else
+    % if cell wide setting is known by UE
+    % increase sub frame number for every iteration
+    enb.NSubframe = mod(enb.NSubframe + 1, 10);
+end
+
+
+%% Demodulate and decode all bandwidth when cell setting is aquired
+
+
+% Time domain synchronization update when beginning of the frame (subframe 0)
+if enb.NSubframe == 0
+    % Matlab LTE Toolbox to find the beginning of the frame
+    enb.offset = lteDLFrameOffset(enb, waveform);
+end
+
+% Apply offset to align waveform to beginning of the LTE Frame
+waveform = waveform(1 + enb.offset:end);
+% Pad end of signal with zeros after offset alignment
+waveform((size(waveform, 1)+ 1):(size(waveform, 1) + enb.offset)) = zeros();
+
+
+% Matlab LTE Toolbox to peform OFDM demodulation to received signal into resource grid
+resourceGrid = lteOFDMDemodulate(enb, waveform);
+
+% Peform channel estimation and equalization
+[hest, noisest] = lteDLChannelEstimate(enb ,estimator, resourceGrid);
+resourceGrid = lteEqualizeMMSE(resourceGrid, hest, noisest);
+
+
+%% Decode BCH MIB in every subframe 0
+% Skip if MIB already decode in initial cell wide setting procedure above
+if ~exist('mib','var') && enb.NSubframe == 0
+    
+    % Matlab LTE Toolbox to generate PBCH spesific index in resource grid
+    pbchIndices = ltePBCHIndices(enb);
+    % Matlab LTE Toolbox to decode Physical BCH symbols into MIB bits
+    [bchBits, pbchSymbols, nfmod4, mib, enb.CellRefP] = ltePBCHDecode(enb, resourceGrid(pbchIndices)); %#ok<ASGLU>
+    
+    % Matlab LTE Toolbox to decode MIB bits into cell wide settings
+    enb = lteMIB(mib, enb);
+    % Calculating exact SFN
+    enb.NFrame = enb.NFrame + nfmod4;
+    
+end
+
+%% Decode CFI
+
+% Matlab LTE Toolbox to generate PCFICH spesific index in resource grid
+pcfichIndices = ltePCFICHIndices(enb);
+% Matlab LTE Toolbox to decode PCFICH symbols into CFI bits
+cfiBits = ltePCFICHDecode(enb, resourceGrid(pcfichIndices));
+% Matlab LTE Toolbox to decode CFI bits into CFI value
+enb.CFI = lteCFIDecode(cfiBits);
+
+%% Decode PDCCH
+
+% Matlab LTE Toolbox to generate PDCCH spesific index in resource grid
+pdcchIndices = ltePDCCHIndices(enb);
+% Matlab LTE Toolbox to decode PCFICH symbols into CFI bits
+[dciBitsOri, pdcchSymbols] = ltePDCCHDecode(enb, resourceGrid(pdcchIndices)); %#ok<NASGU>
+
+%% Decode DCI to get PPDSCH mapping in resource grid
+
+% PDCCH blind search for System Information (SI) and DCI decoding. The
+% LTE System Toolbox provides full blind search of the PDCCH to find
+% any DCI messages with a specified RNTI
+
+% input = inBits(pdcchCandidates(candidate,1):pdcchCandidates(candidate,2));
+% [dciMessageBits,decRnti] = lteDCIDecode(dciConfig,input);
+
+[dciFull, dciBitsFull] = ltePDCCHSearch(enb, userChannel.pdcch, dciBitsOri); %#ok<NASGU>
+
+if ~isempty(dciFull)
+    for i = 1:size(dciFull, 2)
+        if strcmp(dciFull{i}.DCIFormat, 'Format1A')
+            dci = dciFull{i};
+            [~, dciBits] = lteDCI(enb, dci);
+            % dciBits = dciBitsFull{1};
+            break
+        end
+        dciBits = [];
+    end
+    
+else
+    dciBits = [];
+end
+
+
+
+
+
+
+%% Decode PDSCH and DSCH data
+if exist('dci','var');
+    
+    try
+        
+        % convert MCS to modulation scheme
+        [modulation, itbs] = hMCSConfiguration(dci.ModCoding);
+        
+        % Set general PDSCH parameters
+        
+        userChannel.pdsch.PRBSet = lteDCIResourceAllocation(enb, dci);
+        userChannel.pdsch.NLayers = enb.CellRefP;
+        userChannel.pdsch.RV = dci.RV;
+        userChannel.pdsch.Modulation = {modulation};
+        userChannel.pdsch.NTurboDecIts = 5;
+        userChannel.pdsch.CSIMode = 'PUCCH 1-0';
+        if (enb.CellRefP == 1)
+            userChannel.pdsch.TxScheme = 'Port0';
+        else
+            userChannel.pdsch.TxScheme = 'TxDiversity';
+        end
+        
+        
+        % Get PDSCH indices
+        [pdschIndices, pdschInfo] = ltePDSCHIndices(enb, userChannel.pdsch, userChannel.pdsch.PRBSet);
+        
+        
+        % Decode PDSCH and calculate CQI
+        dlsch = ltePDSCHDecode(enb, userChannel.pdsch,  resourceGrid(pdschIndices));
+        % Calculate Transfer Block Size and code rate
+        tbs = lteTBS(size(userChannel.pdsch.PRBSet,1),itbs);
+        userChannel.pdsch.codeRate = double(tbs)/double(pdschInfo.G);
+        % Decode DLSCH
+        if userChannel.pdsch.RV == 0
+            [dlschBit, crcDLSCH, state] = lteDLSCHDecode(enb, userChannel.pdsch, tbs, dlsch);
+        else
+            [dlschBit, crcDLSCH, state] = lteDLSCHDecode(enb, userChannel.pdsch, tbs, dlsch, userChannel.state);
+        end
+        
+        userChannel.data = dlschBit{1};
+        userChannel.dataCRC = crcDLSCH;
+        if crcDLSCH == 0
+            userChannel.state = [];
+        else
+            userChannel.state = state;
+        end
+    catch ME %#ok<NASGU>
+        userChannel.dataCRC = 1;
+        userChannel.state = [];
+    end
+end
+
+%% Return info about internal physical layer process
+userChannel.enb = struct;
+userChannel.enb = enb;
+
+info = struct;
+if exist('mib','var')
+    info.mibBits = mib;
+else
+    info.mibBits = [];
+end
+info.cfiBits = lteCFI(enb);
+
+info.dciBits = dciBits;
+if exist('dlschBit','var')
+    info.dataBits = dlschBit{1};
+    info.cqi = cqiSelect(enb, setfield(userChannel.pdsch,'TxScheme','SpatialMux'), hest, noisest); %#ok<SFLD>
+else
+    info.dataBits = [];
+    info.cqi = [];
+end
+if exist('dci','var');
+    info.dci = dci;
+end
+end
+
+
+function cqi = cqiSelect(enb, chs, hest, noiseest)
+    % Calculate SINR for each reference signals
+    [~,~,sinrs] = ltePMISelect(enb, setfield(chs, 'TxScheme', 'SpatialMux'), hest, noiseest); %#ok<SFLD>
+    % Remove non reference signal
+    sinrs = reshape(sinrs, [], 1);
+    sinrs(~any(~isnan(sinrs), 2), :) = [];
+    
+    % assign beta value for EESM
+    switch chs.Modulation{1}
+        case 'QPSK'
+            beta = [ 0.076 1.70  ;
+                     0.117 1.33  ;
+                     0.188 1.36  ;               %    taken from Exponential Effective SIR Metric for LTE Downlink
+                     0.301 1.79  ;               %    by Joan Olmos, Albert Serra, Silvia Ruiz, Mario Garc?a-Lozano, David Gonzalez    
+                     0.438 1.78  ;
+                     0.588 1.46  ];
+        case '16QAM'
+            beta = [ 0.369 4.51 ;
+                     0.478 5.26 ;
+                     0.601 4.58 ];
+        case '64QAM'
+            beta = [ 0.455 4.14 ;
+                     0.554 5.08 ;
+                     0.650 4.95 ;
+                     0.754 8.41 ;
+                     0.852 15.23 ;
+                     0.926 27.91 ];
+    end
+    betaIdx = find(beta < chs.codeRate, 1, 'last');
+    betaValue = beta(betaIdx, 2);
+    
+    % effective SINR using EESM
+    % Fundamental of LTE
+    
+    sinr = -betaValue * log( mean( exp(sinrs./ -betaValue)));
+    
+    
+    % CQI Calculation
+    % isbn 978-1-4244-9599-3
+    
+    cqi= floor(0.5223 * sinr + 4.6176);
+    
+   
+    
+    
+end
