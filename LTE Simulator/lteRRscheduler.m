@@ -5,11 +5,14 @@ classdef lteRRscheduler < handle
     properties
         ue = model.lteUE.empty;             % served user list
         nextUEIdx ;                         % next scheduled UE in round robin strategy
-        sduBuffer = model.lteMACsdu.empty;  % sdu Buffer
+        sduBuffer;                          % UE spesific sdu packet buffer matrix
+        sduBufferState;                     % TTI buffer state counter
+        allocationState;                    % TTI user allocation counter
         feedbackScheduleN_1 ;               % scheduled feedback cache for N - 1
         feedbackScheduleN ;                 % scheduled feedback cache for N
         rateAdaptation ;                    % rate adaptation toggle flag
         MCS ;                               % used MCS if rate adapation set to 'false'
+        lastArrival_time;                   % previous inbound SDU packet arrival time
     end
     
     methods
@@ -40,39 +43,67 @@ classdef lteRRscheduler < handle
             if isempty(sduUE)
                 sduUE = findobj(ueIn, 'rnti', sdu.rnti);
                 sduUE.turnNo = length(obj.ue) + 1;
-                obj.ue(length(obj.ue) + 1) = sduUE;
+                sduUE.schedulerBufferIdx = length(obj.ue) + 1;
+                obj.ue(sduUE.schedulerBufferIdx) = sduUE;
+                obj.sduBuffer(sduUE.schedulerBufferIdx).queue = model.lteMACsdu.empty;
+                obj.sduBufferState(size(obj.sduBufferState,1),size(obj.sduBufferState,2) + 1,:) = [sdu.rnti 0];
                 if length(obj.ue) == 1
                     obj.nextUEIdx = 1;
                 end
             end
             % add SDU into queue
-            obj.sduBuffer(length(obj.sduBuffer) + 1) = sdu;
+            bufferState = obj.getBufferState(sduUE.schedulerBufferIdx);
+            sdu.bufferSize = bufferState(1,2);
+            sdu.interArrival_time = sdu.arrival_time - obj.lastArrival_time;
+            obj.lastArrival_time = sdu.arrival_time;
+            obj.sduBuffer(sduUE.schedulerBufferIdx). ...
+                queue(length(obj.sduBuffer(sduUE.schedulerBufferIdx).queue) + 1) = sdu;
             sdu.status = 'queued';
         end
         
         %%
-        function bufferState = getBufferState(obj)
+        function bufferState = getBufferState(obj, varargin)
             % method to query occupied sdu buffer
             %   bufferState = obj.getBufferState
             %       bufferState : array of buffer size for each UE in bits
+            %       ueID        : optional parameter scheduler UE index
             %
             
+            if isempty(varargin{1})
+                min = 1;
+                max = length(obj.ue);
+                num = max;
+            else
+                min = varargin{1};
+                max = varargin{1};
+                num = 1;
+            end
                         
-            bufferState = zeros(length(obj.ue),2);
+            bufferState = zeros(num,2);
             
             % measure bits in buffer for each UE
-            for i = 1:length(obj.ue)
+            for i = min:max
                 % find MAC sdu for spesific UE
-                sdu = findobj(obj.sduBuffer, 'rnti', obj.ue(i).rnti);
+                sdu = obj.sduBuffer(i).queue;
                 ueBufferLength = 0;
                 % sum all sdu length in bits
                 for j = 1:length(sdu)
                     ueBufferLength = ueBufferLength + length(sdu(j).data);
                 end
+                % compact indexing
+                if num == 1
+                    idx = 1;
+                else
+                    idx = i;
+                end
+                % return 0 is buffer empty
+                if isempty(ueBufferLength)
+                    ueBufferLength = 0;
+                end
                 
                 % return user RNTI and buffer length in bits
-                bufferState(i,1) = obj.ue(i).rnti;
-                bufferState(i,2) = ueBufferLength;
+                bufferState(idx,1) = obj.ue(i).rnti;
+                bufferState(idx,2) = ueBufferLength;
             end
             
         end
@@ -90,6 +121,7 @@ classdef lteRRscheduler < handle
             % initialization 
             % create empty list of transport block
             tb = model.lteDownlinkTransportBlock.empty;    
+
             
             % cycle feedback schedule
             % this because reporting of nth TTI is done at n+1th TTI at
@@ -100,6 +132,7 @@ classdef lteRRscheduler < handle
             
             % if no UE in round robin return empty
             if isempty(obj.nextUEIdx )
+                obj.sduBufferState(size(obj.sduBufferState,1) + 1,:,:) = obj.getBufferState([]);
                 return
             end
             
@@ -142,16 +175,19 @@ classdef lteRRscheduler < handle
                     tbCandidate = ueCandidate(1).getRetransmissionBlock;
                     ueCandidate(1).harqBuffer = circshift(ueCandidate(1).harqBuffer,[1 0]);
                     
+                    % find queued SDU for spesific UE
+                    sduCandidate = obj.sduBuffer(ueCandidate(1).schedulerBufferIdx).queue;       % number available SDU
+                    
                     if ~isempty(tbCandidate)
                         % retransmitt if there are transport blcok need to
                         % be retransmitted
                         
-                        % if UE transmit in less than 1 TTI ago try to
+                        % if UE transmit in less than 8 TTI ago try to
                         % resent with appropriate CQI value if not resent
                         % regardless channel condition
                         % This is due to channel condition can differ from
                         % when initial HARQ process channel condition
-                        if ueCandidate(1).cqiAge < 1
+                        if ((enb.tti - tbCandidate(1).createdTTI)  < 8) && ~isempty(sduCandidate)
                             % recalculate transport block allocation
                             % according to current CQI
                             [ mcsAlloc, ~, rbAlloc, rbAvailable ] = ...
@@ -203,8 +239,7 @@ classdef lteRRscheduler < handle
                     % process, send new transport block
                     if allocated == 0 && ~isempty(ueCandidate(1).getHARQno)
                         
-                        % find queued SDU for spesific UE
-                        sduCandidate = findobj(obj.sduBuffer,'rnti', ueCandidate(1).ue.RNTI);           % number available SDU
+
                         if ~isempty(sduCandidate)
                             sduDataLength = 0 ;                                                         % total length SDU in Bits
                             % calculate PDU length
@@ -238,6 +273,7 @@ classdef lteRRscheduler < handle
                                 % transport block generation
                                 tbCandidate(1) = model.lteDownlinkTransportBlock(ueCandidate(1));
                                 tbCandidate(1).build(enb,  mcsAlloc, rbAlloc, pdu);
+                                tbCandidate(1).createdTTI = enb.tti;
                                 % set HARQ process ID and store to UE HARQ
                                 % register
                                 tbCandidate(1).setHARQNo(ueCandidate(1).getHARQno);
@@ -256,11 +292,13 @@ classdef lteRRscheduler < handle
                                     sduCandidate(j).sent_time = enb.NFrame * 0.01 + enb.NSubframe * 0.001;
                                     tbCandidate(1).sdu(length( tbCandidate(1).sdu) + 1) = sduCandidate(j);
                                     ueCandidate(1).sentSDU(length(ueCandidate(1).sentSDU) + 1) = sduCandidate(j);
-                                    obj.sduBuffer(obj.sduBuffer == sduCandidate(j)) = [];
+                                    obj.sduBuffer(ueCandidate(1).schedulerBufferIdx).queue(...
+                                        obj.sduBuffer(ueCandidate(1).schedulerBufferIdx).queue == sduCandidate(j)) = [];
                                 end
                             end
                         end
                     end
+                    
                 end
                 % schedule to update CQI if after 4 TTI UE never get scheduled
                 if ueCandidate(1).cqiAge == 3
@@ -273,9 +311,13 @@ classdef lteRRscheduler < handle
                     continue
                 else
                     obj.nextUEIdx = obj.nextUEIdx + 1;
+                    % save current buffer state
+                    obj.sduBufferState(size(obj.sduBufferState,1) + 1,:,:) = obj.getBufferState([]);
                     return
                 end
             end
+            % save current buffer state
+            obj.sduBufferState(size(obj.sduBufferState,1) + 1,:,:) = obj.getBufferState([]);
             
         end
     end

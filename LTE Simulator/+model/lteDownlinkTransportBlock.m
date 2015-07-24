@@ -21,6 +21,7 @@ classdef lteDownlinkTransportBlock < handle
         crc ;                                       % transport block size CRC/ACK status
         rv ;                                        % transport block redudancy version
         retransmissionNo ;                          % number of retransmission
+        createdTTI;                                 % time when transport block start in HARQ process
         HARQNo ;                                    % HARQ process ID
         state = struct;                             % state placeholder
     end
@@ -78,7 +79,7 @@ classdef lteDownlinkTransportBlock < handle
             % PDCCH parameter settings
             obj.pdcch.NDLRB = enb.NDLRB;                                            % Number of DL-RB in total BW
             obj.pdcch.RNTI =  obj.ue.ue.RNTI;                                       % 16-bit value number
-            obj.pdcch.PDCCHFormat = 2;                                              % 2-CCE of aggregation level 2
+            obj.pdcch.PDCCHFormat = 1;                                              % 2-CCE of aggregation level 2
             
         end
         %% 

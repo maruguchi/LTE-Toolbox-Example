@@ -45,6 +45,9 @@ classdef lteENBPhysical < handle
             obj.enb.PHICHDuration = 'Normal';   % PHICH duration (accord to CP): 'Normal' | 'Extended'
             obj.enb.CFI = 3;                    % Control format indicator (CFI) value: 1,2 or 3
             
+            % TTI clock
+            obj.enb.tti = 0;                    % eNodeB TTI clock counter
+            
                         
             % channel estimator settings
             obj.cec.PilotAverage = 'UserDefined';     % Pilot averaging methods
@@ -312,6 +315,7 @@ classdef lteENBPhysical < handle
                     
                     % Update CQI value for corresponding UE
                     if length(cqi) == 1
+                        cqi = round((double(cqi) + double(obj.ueMonitored(i).ue.cqi)) / 2);
                         obj.ueMonitored(i).ue.cqi = cqi;
                     end
                     
@@ -322,6 +326,9 @@ classdef lteENBPhysical < handle
                         disp(['receive positive acknowledgement from process ID ', num2str(obj.ueMonitored(i).ackHARQNo), ' RNTI ',...
                             num2str(obj.ueMonitored(i).ue.rnti),' and CQI value of ',num2str(cqi)]);
                         if ~isempty(tb)
+                            for j = 1:length(tb.sdu)
+                                tb.sdu(j).delayENB_time = double(obj.enb.tti + 1) * 0.001 - tb.sdu(j).arrival_time;
+                            end
                             obj.ueMonitored(i).ue.harqBuffer(obj.ueMonitored(i).ue.harqBuffer == tb) = [];
                         end
                     else
@@ -350,6 +357,7 @@ classdef lteENBPhysical < handle
             
             % update subframe - frame number
             obj.enb.NSubframe = obj.enb.NSubframe + 1;
+            obj.enb.tti = obj.enb.tti + 1;
             if obj.enb.NSubframe == 10
                 obj.enb.NSubframe = 0;
                 obj.enb.NFrame = obj.enb.NFrame + 1;

@@ -12,11 +12,13 @@ classdef lteMACsdu < handle
     properties
         rnti                    % UE spesific RNTI
         data                    % data bits container
-        create_time             % SDU arrival time stamp
+        arrival_time            % SDU arrival time stamp
         sent_time               % SDU 1st transmission time (in TTI ms)
         delivered_time          % SDU demodulation in UE (in TTI ms)
-        queue_time              % time spent from arrival time until delivered time
+        delayUE_time            % time spent from arrival time until delivered time, UE point of view
+        delayENB_time           % time spent from arrival time until delivered time, ENB point of view
         interArrival_time       % time interval between this SDU to previous SDU
+        bufferSize              % UE spesific buffer size at arrival
         status                  % SDU status
     end
     

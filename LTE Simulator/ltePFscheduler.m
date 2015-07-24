@@ -4,12 +4,15 @@ classdef ltePFscheduler < handle
     
     properties
         ue = model.lteUE.empty;             % served user list
-        sduBuffer = model.lteMACsdu.empty;  % sdu Buffer
+        sduBuffer;                          % sdu Buffer
+        sduBufferState;                     % TTI buffer state counter
+        allocationState;                    % TTI user allocation counter
         feedbackScheduleN_1 ;               % scheduled feedback cache for N - 1
         feedbackScheduleN ;                 % scheduled feedback cache for N
         rateAdaptation ;                    % rate adaptation toggle flag
         MCS ;                               % used MCS if rate adapation set to 'false'
         alpha ;                             % propotional fair factor
+        lastArrival_time;                   % previous inbound SDU packet arrival time
     end
     
     methods
@@ -39,38 +42,66 @@ classdef ltePFscheduler < handle
             sduUE = findobj(obj.ue, 'rnti', sdu.rnti);
             if isempty(sduUE)
                 sduUE = findobj(ueIn, 'rnti', sdu.rnti);
-                obj.ue(length(obj.ue) + 1) = sduUE;
+                sduUE.schedulerBufferIdx = length(obj.ue) + 1;
+                obj.ue(sduUE.schedulerBufferIdx) = sduUE;
+                obj.sduBuffer(sduUE.schedulerBufferIdx).queue = model.lteMACsdu.empty;
+                obj.sduBufferState(size(obj.sduBufferState,1),size(obj.sduBufferState,2) + 1,:) = [sdu.rnti 0];
                 obj.ue(length(obj.ue)).alpha = obj.alpha;
                 obj.ue(length(obj.ue)).avg = 1;
             end
             % add SDU into queue
-            obj.sduBuffer(length(obj.sduBuffer) + 1) = sdu;
+            bufferState = obj.getBufferState(sduUE.schedulerBufferIdx);
+            sdu.bufferSize = bufferState(1,2);
+            sdu.interArrival_time = sdu.arrival_time - obj.lastArrival_time;
+            obj.lastArrival_time = sdu.arrival_time;
+            obj.sduBuffer(sduUE.schedulerBufferIdx). ...
+                queue(length(obj.sduBuffer(sduUE.schedulerBufferIdx).queue) + 1) = sdu;
             sdu.status = 'queued';
         end
         
         %%
-        function bufferState = getBufferState(obj)
+        function bufferState = getBufferState(obj, varargin)
             % method to query occupied sdu buffer
             %   bufferState = obj.getBufferState
             %       bufferState : array of buffer size for each UE in bits
+            %       ueID        : optional parameter scheduler UE index
             %
             
+            if isempty(varargin{1})
+                min = 1;
+                max = length(obj.ue);
+                num = max;
+            else
+                min = varargin{1};
+                max = varargin{1};
+                num = 1;
+            end
                         
-            bufferState = zeros(length(obj.ue),2);
+            bufferState = zeros(num,2);
             
             % measure bits in buffer for each UE
-            for i = 1:length(obj.ue)
+            for i = min:max
                 % find MAC sdu for spesific UE
-                sdu = findobj(obj.sduBuffer, 'rnti', obj.ue(i).rnti);
+                sdu = obj.sduBuffer(i).queue;
                 ueBufferLength = 0;
                 % sum all sdu length in bits
                 for j = 1:length(sdu)
                     ueBufferLength = ueBufferLength + length(sdu(j).data);
                 end
+                % compact indexing
+                if num == 1
+                    idx = 1;
+                else
+                    idx = i;
+                end
+                % return 0 is buffer empty
+                if isempty(ueBufferLength)
+                    ueBufferLength = 0;
+                end
                 
                 % return user RNTI and buffer length in bits
-                bufferState(i,1) = obj.ue(i).rnti;
-                bufferState(i,2) = ueBufferLength;
+                bufferState(idx,1) = obj.ue(i).rnti;
+                bufferState(idx,2) = ueBufferLength;
             end
             
         end
@@ -98,6 +129,7 @@ classdef ltePFscheduler < handle
             
             % if no UE return empty
             if isempty(obj.ue )
+                obj.sduBufferState(size(obj.sduBufferState,1) + 1,:,:) = obj.getBufferState([]);
                 return
             end
             
@@ -202,7 +234,7 @@ classdef ltePFscheduler < handle
                     if allocated == 0 && ~isempty(ueCandidate(1).getHARQno)
                         
                         % find queued SDU for spesific UE
-                        sduCandidate = findobj(obj.sduBuffer,'rnti', ueCandidate(1).ue.RNTI);           % number available SDU
+                        sduCandidate = obj.sduBuffer(ueCandidate(1).schedulerBufferIdx).queue;       % number available SDU
                         if ~isempty(sduCandidate)
                             sduDataLength = 0 ;                                                         % total length SDU in Bits
                             % calculate PDU length
@@ -258,7 +290,8 @@ classdef ltePFscheduler < handle
                                     sduCandidate(j).sent_time = enb.NFrame * 0.01 + enb.NSubframe * 0.001;
                                     tbCandidate(1).sdu(length( tbCandidate(1).sdu) + 1) = sduCandidate(j);
                                     ueCandidate(1).sentSDU(length(ueCandidate(1).sentSDU) + 1) = sduCandidate(j);
-                                    obj.sduBuffer(obj.sduBuffer == sduCandidate(j)) = [];
+                                    obj.sduBuffer(ueCandidate(1).schedulerBufferIdx).queue(...
+                                        obj.sduBuffer(ueCandidate(1).schedulerBufferIdx).queue == sduCandidate(j)) = [];
                                 end
                             end
                         end
@@ -274,10 +307,13 @@ classdef ltePFscheduler < handle
                 if  ueServ < ueNo
                     continue
                 else
+                    % save current buffer state
+                    obj.sduBufferState(size(obj.sduBufferState,1) + 1,:,:) = obj.getBufferState([]);
                     return
                 end
             end
-            
+            % save current buffer state
+            obj.sduBufferState(size(obj.sduBufferState,1) + 1,:,:) = obj.getBufferState([]);
         end
     end
     

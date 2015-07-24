@@ -39,6 +39,7 @@ classdef lteUEPhysical < handle
             obj.ue = ue;
             obj.ue.cqi = [];
             obj.ue.cqiAge = 0;
+            obj.ue.tti = 0;
         end
         
         %%
@@ -131,6 +132,8 @@ classdef lteUEPhysical < handle
                         break
                     end
                 end
+            else
+                obj.ue.RNTI
             end
             
             %% Decode PDSCH and DSCH data
@@ -219,9 +222,9 @@ classdef lteUEPhysical < handle
                                 % find corresponding SDU in main simulator
                                 obj.sduBuffer(length(obj.sduBuffer) + 1) = findobj(varargin{1}, 'data', sdu{i});
                                 % update delivered and queueing time
-                                obj.sduBuffer(length(obj.sduBuffer)).delivered_time = double(obj.enb.NFrame) * 0.01 + (obj.enb.NSubframe + 1) * 0.001;
-                                obj.sduBuffer(length(obj.sduBuffer)).queue_time = obj.sduBuffer(length(obj.sduBuffer)).delivered_time - ...
-                                    obj.sduBuffer(length(obj.sduBuffer)).create_time;
+                                obj.sduBuffer(length(obj.sduBuffer)).delivered_time = double(obj.ue.tti + 1) * 0.001;
+                                obj.sduBuffer(length(obj.sduBuffer)).delayUE_time = obj.sduBuffer(length(obj.sduBuffer)).delivered_time - ...
+                                    obj.sduBuffer(length(obj.sduBuffer)).arrival_time;
                                 obj.sduBuffer(length(obj.sduBuffer)).status = 'delivered';
                             end
                         end
@@ -255,8 +258,11 @@ classdef lteUEPhysical < handle
             % update UE subframe number
             obj.ue.NSubframe = obj.enb.NSubframe;
             
+            if obj.ue.cqiAge == 4
+                obj.acKN_1 = 0;
+            end
             
-            if ~isempty(obj.acKN_1) %|| obj.ue.cqiAge == 4
+            if ~isempty(obj.acKN_1) && ~isempty(obj.ue.cqi)
                 % if there are acknowledgement need to be sent do the following
                 
                 % Matlab LTE Toolbox to generate uplink transmit grid
@@ -309,6 +315,7 @@ classdef lteUEPhysical < handle
             
             % update CQI feedback age and subframe - frame number
             obj.ue.cqiAge = obj.ue.cqiAge + 1;
+            obj.ue.tti = obj.ue.tti + 1;
             obj.enb.NSubframe = obj.enb.NSubframe + 1;
             if obj.enb.NSubframe == 10
                 obj.enb.NSubframe = 0;

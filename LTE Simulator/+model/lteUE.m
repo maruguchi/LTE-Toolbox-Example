@@ -18,6 +18,7 @@ classdef lteUE < handle
         harqBuffer = model.lteDownlinkTransportBlock.empty; % HARQ process register
         turnNo ;                                            % Round Robin turn (if RR scheduler is used)
         sentSDU = model.lteMACsdu.empty;                    % Sent SDU tracker
+        schedulerBufferIdx;                                 % UE index in scheduller Buffer
         alpha ;                                             % PF scheduler alpha value
         avg ;                                               % PF scheduler avg value                    
         R ;                                                 % PF scheduler n RB available bytes
