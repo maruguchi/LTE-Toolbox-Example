@@ -11,7 +11,7 @@ classdef lteUE < handle
     % Date 15-June-2015
     
     properties
-        rnti                                                % UE RNTI number    
+        rnti;                                                % UE RNTI number    
         cqi                                                 % UE CQI (channel quality index)
         cqiAge                                              % UE CQI reporting age in TTI
         ue = struct;                                        % UE PUCCH parameters container    
@@ -23,7 +23,7 @@ classdef lteUE < handle
         avg ;                                               % PF scheduler avg value                    
         R ;                                                 % PF scheduler n RB available bytes
         R_1 ;                                               % PF scheduler n-1 RB available bytes
-        score ;                                             % PC scheduler score
+        score ;                                             % PF scheduler score
         enb;                                                % eNodeB parameter container
     end
     

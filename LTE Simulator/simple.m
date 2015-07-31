@@ -16,7 +16,7 @@ transportBlock.setHARQNo(ueDB.getHARQno);
 ueDB.addHARQProcess(transportBlock);
 
 % insert scheduled ue monitoring and transport block
-ueMon.ue = ueDB;
+ueMon.ue = ueDB; % what is the difference between ueMon and ueDB?
 ueMon.ackHARQNo = harqID;
 enbPHY.insertUE(ueMon);
 enbPHY.insertTransportBlock(transportBlock);
@@ -24,13 +24,13 @@ enbPHY.insertTransportBlock(transportBlock);
 
 
 % downlink transmission
-downlinkSignal = enbPHY.transmit();
+downlinkSignal = enbPHY.transmit(); 
 
-uePHY.receive(downlinkSignal, [], []);
+uePHY.receive(downlinkSignal, [], []); % why [] and []?
 
 % uplink transmission
 uplinkSignal = uePHY.transmit; %#ok<NASGU>
 % 
-uePHY.receive(downlinkSignal, [], []);
+uePHY.receive(downlinkSignal, [], []); % why transmit twice
 uplinkSignal = uePHY.transmit;
 enbPHY.receive(uplinkSignal);
